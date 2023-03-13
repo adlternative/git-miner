@@ -114,7 +114,7 @@ func (pf *PackFile) ParseObjects() error {
 			baseOffset := uint32(b & 127)
 			for b&128 != 0 {
 				baseOffset++
-				if baseOffset == 0 {
+				if baseOffset == 0 || ((baseOffset>>7)&1 != 0) {
 					return fmt.Errorf("bad delta base object offset value")
 				}
 
