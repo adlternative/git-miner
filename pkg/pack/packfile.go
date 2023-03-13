@@ -111,7 +111,7 @@ func (pf *PackFile) ParseObjects() error {
 				return err
 			}
 
-			baseOffset := b & 127
+			baseOffset := uint32(b & 127)
 			for b&128 != 0 {
 				baseOffset++
 				if baseOffset == 0 {
@@ -122,11 +122,11 @@ func (pf *PackFile) ParseObjects() error {
 					return err
 				}
 
-				baseOffset = (baseOffset << 7) + (b & 127)
+				baseOffset = (baseOffset << 7) + uint32(b&127)
 			}
-			ofsOffset := curOffset - uint32(baseOffset)
+			ofsOffset := curOffset - baseOffset
 			if ofsOffset <= 0 || ofsOffset >= curOffset {
-				return fmt.Errorf("delta base offset is out out of bound")
+				return fmt.Errorf("delta base offset is out of bound: curOffset=%d, baseOffet=%d, b=%d", curOffset, baseOffset, b)
 			}
 
 		//	// 读取 baseoffset 用当前对象的 offset 去减可以得到 base 的 offset
@@ -192,13 +192,11 @@ func (pf *PackFile) ParseObjects() error {
 		pf.objects = append(pf.objects, obj)
 
 		log.Printf("index=%d offset=%d, type=%s, size=%d\n", i, obj.offset, obj._type, obj.size)
-		// 创建一个缓冲区来存储解压后的数据
 		_, err = pf.unpackEntryData(int(obj.size), obj._type)
 		if err != nil {
 			return err
 		}
 
-		//log.Printf("data=%s\n len=%d\n", uncompressedData, len(uncompressedData))
 	}
 
 	return nil
