@@ -19,6 +19,6 @@ const (
 
 type Object struct {
 	size   uint64
-	offset uint32
+	offset uint64
 	_type  ObjectType
 }

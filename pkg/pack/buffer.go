@@ -8,8 +8,8 @@ import (
 const DefaultBufferSize = 1 << 12
 
 type buffer struct {
-	length uint32
-	offset uint32
+	length uint64
+	offset uint64
 	buf    []byte
 	reader io.Reader
 }
@@ -31,7 +31,7 @@ func (b *buffer) Buffer() []byte {
 	return b.buf[b.offset : b.offset+b.length]
 }
 
-func (b *buffer) Fill(min uint32) ([]byte, error) {
+func (b *buffer) Fill(min uint64) ([]byte, error) {
 	if min <= b.length {
 		return b.buf[b.offset : b.offset+b.length], nil
 	}
@@ -48,13 +48,13 @@ func (b *buffer) Fill(min uint32) ([]byte, error) {
 				return nil, err
 			}
 		}
-		b.length += uint32(ret)
+		b.length += uint64(ret)
 	}
 
 	return b.buf[:min], nil
 }
 
-func (b *buffer) Use(length uint32) {
+func (b *buffer) Use(length uint64) {
 	b.length -= length
 	b.offset += length
 }

@@ -5,6 +5,7 @@ import (
 	"fmt"
 	"log"
 	"os"
+	"unsafe"
 
 	gitzlib "github.com/adlternative/git-zlib-cgo"
 )
@@ -17,13 +18,13 @@ type PackFile struct {
 	file       *os.File
 	version    uint32
 	objectNums uint32
-	curOffset  uint32
+	curOffset  uint64
 	objects    []*Object
 
 	inputBuf *buffer
 }
 
-func (pf *PackFile) fill(min uint32) ([]byte, error) {
+func (pf *PackFile) fill(min uint64) ([]byte, error) {
 	return pf.inputBuf.Fill(min)
 }
 
@@ -31,7 +32,7 @@ func (pf *PackFile) buffer() []byte {
 	return pf.inputBuf.Buffer()
 }
 
-func (pf *PackFile) use(length uint32) {
+func (pf *PackFile) use(length uint64) {
 	pf.inputBuf.Use(length)
 	pf.curOffset += length
 }
@@ -70,6 +71,11 @@ func (pf *PackFile) ParseHeader() error {
 	log.Printf("object nums = %d\n", objectNums)
 
 	return nil
+}
+
+func MSB64(value uint64) uint8 {
+	size := unsafe.Sizeof(value) * 8
+	return uint8(value >> (size - 8))
 }
 
 func (pf *PackFile) ParseObjects() error {
@@ -111,10 +117,10 @@ func (pf *PackFile) ParseObjects() error {
 				return err
 			}
 
-			baseOffset := uint32(b & 127)
+			baseOffset := uint64(b & 127)
 			for b&128 != 0 {
 				baseOffset++
-				if baseOffset == 0 || ((baseOffset>>7)&1 != 0) {
+				if baseOffset == 0 || (MSB64(baseOffset) != 0) {
 					return fmt.Errorf("bad delta base object offset value")
 				}
 
@@ -122,7 +128,7 @@ func (pf *PackFile) ParseObjects() error {
 					return err
 				}
 
-				baseOffset = (baseOffset << 7) + uint32(b&127)
+				baseOffset = (baseOffset << 7) + uint64(b&127)
 			}
 			ofsOffset := curOffset - baseOffset
 			if ofsOffset <= 0 || ofsOffset >= curOffset {
@@ -244,7 +250,7 @@ func (pf *PackFile) unpackEntryData(size int, _type ObjectType) ([]byte, error) 
 			return nil, err
 		}
 
-		pf.use(uint32(inputLength - zstream.AvailIn()))
+		pf.use(uint64(inputLength - zstream.AvailIn()))
 	}
 	if status != gitzlib.Z_STREAM_END || zstream.TotalOut() != size {
 		return nil, fmt.Errorf("inflate returned %d", status)
