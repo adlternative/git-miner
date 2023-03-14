@@ -78,12 +78,10 @@ func MSB64(value uint64) uint8 {
 	return uint8(value >> (size - 8))
 }
 
-func (pf *PackFile) ParseObject(index uint32) error {
-	curOffset := pf.curOffset
-
+func (pf *PackFile) ParseObjectHeader(curOffset uint64) (*ObjectHeader, error) {
 	b, err := pf.readByte()
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	_type := ObjectType((b >> 4) & 7)
@@ -93,7 +91,7 @@ func (pf *PackFile) ParseObject(index uint32) error {
 	for b&0x80 != 0 {
 		b, err = pf.readByte()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		size += (uint64(b) & 0x7f) << shift
@@ -104,7 +102,7 @@ func (pf *PackFile) ParseObject(index uint32) error {
 	case ObjRefDelta:
 		_, err = pf.fill(GitSha1Rawsz)
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		// handle ref delta
@@ -113,35 +111,48 @@ func (pf *PackFile) ParseObject(index uint32) error {
 	case ObjOfsDelta:
 		b, err = pf.readByte()
 		if err != nil {
-			return err
+			return nil, err
 		}
 
 		baseOffset := uint64(b & 127)
 		for b&128 != 0 {
 			baseOffset++
 			if baseOffset == 0 || (MSB64(baseOffset) != 0) {
-				return fmt.Errorf("bad delta base object offset value")
+				return nil, fmt.Errorf("bad delta base object offset value")
 			}
 
 			if b, err = pf.readByte(); err != nil {
-				return err
+				return nil, err
 			}
 
 			baseOffset = (baseOffset << 7) + uint64(b&127)
 		}
 		ofsOffset := curOffset - baseOffset
 		if ofsOffset <= 0 || ofsOffset >= curOffset {
-			return fmt.Errorf("delta base offset is out of bound: curOffset=%d, baseOffet=%d, b=%d", curOffset, baseOffset, b)
+			return nil, fmt.Errorf("delta base offset is out of bound: curOffset=%d, baseOffet=%d, b=%d", curOffset, baseOffset, b)
 		}
 	case ObjCommit, ObjTree, ObjBlob, ObjTag:
 	default:
-		return fmt.Errorf("bad type %v", _type)
+		return nil, fmt.Errorf("bad type %v", _type)
+	}
+
+	return &ObjectHeader{
+		size:  size,
+		_type: _type,
+	}, nil
+
+}
+
+func (pf *PackFile) ParseObject(index uint32) error {
+	curOffset := pf.curOffset
+	header, err := pf.ParseObjectHeader(curOffset)
+	if err != nil {
+		return err
 	}
 
 	obj := &Object{
-		offset: curOffset,
-		_type:  _type,
-		size:   size,
+		offset:       curOffset,
+		ObjectHeader: header,
 	}
 	pf.objects = append(pf.objects, obj)
 

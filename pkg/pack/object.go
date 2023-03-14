@@ -18,7 +18,11 @@ const (
 )
 
 type Object struct {
-	size   uint64
+	*ObjectHeader
 	offset uint64
-	_type  ObjectType
+}
+
+type ObjectHeader struct {
+	size  uint64
+	_type ObjectType
 }
