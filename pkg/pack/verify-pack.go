@@ -1,5 +1,7 @@
 package pack
 
+import "log"
+
 func Verify(packPath string) error {
 	packFile, err := NewPackFile(packPath)
 	if err != nil {
@@ -13,5 +15,9 @@ func Verify(packPath string) error {
 	if err != nil {
 		return err
 	}
+	for _, obj := range packFile.objects {
+		log.Printf("index=%d offset=%d, type=%s, size=%d\n", obj.index, obj.offset, obj._type, obj.size)
+	}
+
 	return nil
 }

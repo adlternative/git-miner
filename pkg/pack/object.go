@@ -20,6 +20,7 @@ const (
 type Object struct {
 	*ObjectHeader
 	offset uint64
+	index  uint32
 }
 
 type ObjectHeader struct {

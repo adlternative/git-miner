@@ -143,32 +143,33 @@ func (pf *PackFile) ParseObjectHeader(curOffset uint64) (*ObjectHeader, error) {
 
 }
 
-func (pf *PackFile) ParseObject(index uint32) error {
+func (pf *PackFile) ParseObject(index uint32) (*Object, error) {
 	curOffset := pf.curOffset
 	header, err := pf.ParseObjectHeader(curOffset)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
 	obj := &Object{
+		index:        index,
 		offset:       curOffset,
 		ObjectHeader: header,
 	}
-	pf.objects = append(pf.objects, obj)
 
-	log.Printf("index=%d offset=%d, type=%s, size=%d\n", index, obj.offset, obj._type, obj.size)
 	_, err = pf.unpackEntryData(int(obj.size), obj._type)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return nil
+	return obj, nil
 }
 
 func (pf *PackFile) ParseObjects() error {
 	for i := uint32(0); i < pf.objectNums; i++ {
-		if err := pf.ParseObject(i); err != nil {
+		obj, err := pf.ParseObject(i)
+		if err != nil {
 			return err
 		}
+		pf.objects = append(pf.objects, obj)
 	}
 
 	return nil
