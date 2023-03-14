@@ -1,6 +1,6 @@
 package pack
 
-import "log"
+import log "github.com/sirupsen/logrus"
 
 func Verify(packPath string) error {
 	packFile, err := NewPackFile(packPath)

@@ -6,9 +6,9 @@ package cmd
 
 import (
 	"github.com/adlternative/git-tiny-verify-pack/pkg/pack"
-	"log"
 	"os"
 
+	log "github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 )
 
@@ -36,7 +36,20 @@ func Execute() {
 	}
 }
 
+type myFormatter struct{}
+
+func (f *myFormatter) Format(entry *log.Entry) ([]byte, error) {
+	return []byte(entry.Message), nil
+}
+
+func initLog() {
+	logger := log.New()
+	logger.SetFormatter(&myFormatter{})
+	logger.SetOutput(os.Stdout)
+}
+
 func init() {
+	cobra.OnInitialize(initLog)
 	// Here you will define your flags and configuration settings.
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
