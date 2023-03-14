@@ -134,60 +134,9 @@ func (pf *PackFile) ParseObjects() error {
 			if ofsOffset <= 0 || ofsOffset >= curOffset {
 				return fmt.Errorf("delta base offset is out of bound: curOffset=%d, baseOffet=%d, b=%d", curOffset, baseOffset, b)
 			}
-
-		//	// 读取 baseoffset 用当前对象的 offset 去减可以得到 base 的 offset
-		//	base_offset = c & 127;
-		//	while (c & 128) {
-		//	base_offset += 1;
-		//	if (!base_offset || MSB(base_offset, 7))
-		//		bad_object(obj->idx.offset, _("offset value overflow for delta base object"));
-		//	p = fill(1);
-		//	c = *p;
-		//	use(1);
-		//	base_offset = (base_offset << 7) + (c & 127);
-		//}
-		//	*ofs_offset = obj->idx.offset - base_offset;
-		//	if (*ofs_offset <= 0 || *ofs_offset >= obj->idx.offset)
-		//		bad_object(obj->idx.offset, _("delta base offset is out of bound"));
-		//	break;
-
 		case ObjCommit, ObjTree, ObjBlob, ObjTag:
 		default:
 			return fmt.Errorf("bad type %v", _type)
-			/*
-					case OBJ_REF_DELTA:
-					// 读取 ref_oid
-					oidread(ref_oid, fill(the_hash_algo->rawsz));
-					use(the_hash_algo->rawsz);
-					break;
-				case OBJ_OFS_DELTA:
-					p = fill(1);
-					c = *p;
-					use(1);
-					// 读取 baseoffset 用当前对象的 offset 去减可以得到 base 的 offset
-					base_offset = c & 127;
-					while (c & 128) {
-						base_offset += 1;
-						if (!base_offset || MSB(base_offset, 7))
-							bad_object(obj->idx.offset, _("offset value overflow for delta base object"));
-						p = fill(1);
-						c = *p;
-						use(1);
-						base_offset = (base_offset << 7) + (c & 127);
-					}
-					*ofs_offset = obj->idx.offset - base_offset;
-					if (*ofs_offset <= 0 || *ofs_offset >= obj->idx.offset)
-						bad_object(obj->idx.offset, _("delta base offset is out of bound"));
-					break;
-				case OBJ_COMMIT:
-				case OBJ_TREE:
-				case OBJ_BLOB:
-				case OBJ_TAG:
-					break;
-				default:
-					bad_object(obj->idx.offset, _("unknown object type %d"), obj->type);
-
-			*/
 		}
 
 		obj := &Object{
