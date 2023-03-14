@@ -78,80 +78,86 @@ func MSB64(value uint64) uint8 {
 	return uint8(value >> (size - 8))
 }
 
+func (pf *PackFile) ParseObject(index uint32) error {
+	curOffset := pf.curOffset
+
+	b, err := pf.readByte()
+	if err != nil {
+		return err
+	}
+
+	_type := ObjectType((b >> 4) & 7)
+	size := uint64(b & 15)
+	shift := 4
+
+	for b&0x80 != 0 {
+		b, err = pf.readByte()
+		if err != nil {
+			return err
+		}
+
+		size += (uint64(b) & 0x7f) << shift
+		shift += 7
+	}
+
+	switch _type {
+	case ObjRefDelta:
+		_, err = pf.fill(GitSha1Rawsz)
+		if err != nil {
+			return err
+		}
+
+		// handle ref delta
+
+		pf.use(GitSha1Rawsz)
+	case ObjOfsDelta:
+		b, err = pf.readByte()
+		if err != nil {
+			return err
+		}
+
+		baseOffset := uint64(b & 127)
+		for b&128 != 0 {
+			baseOffset++
+			if baseOffset == 0 || (MSB64(baseOffset) != 0) {
+				return fmt.Errorf("bad delta base object offset value")
+			}
+
+			if b, err = pf.readByte(); err != nil {
+				return err
+			}
+
+			baseOffset = (baseOffset << 7) + uint64(b&127)
+		}
+		ofsOffset := curOffset - baseOffset
+		if ofsOffset <= 0 || ofsOffset >= curOffset {
+			return fmt.Errorf("delta base offset is out of bound: curOffset=%d, baseOffet=%d, b=%d", curOffset, baseOffset, b)
+		}
+	case ObjCommit, ObjTree, ObjBlob, ObjTag:
+	default:
+		return fmt.Errorf("bad type %v", _type)
+	}
+
+	obj := &Object{
+		offset: curOffset,
+		_type:  _type,
+		size:   size,
+	}
+	pf.objects = append(pf.objects, obj)
+
+	log.Printf("index=%d offset=%d, type=%s, size=%d\n", index, obj.offset, obj._type, obj.size)
+	_, err = pf.unpackEntryData(int(obj.size), obj._type)
+	if err != nil {
+		return err
+	}
+	return nil
+}
+
 func (pf *PackFile) ParseObjects() error {
 	for i := uint32(0); i < pf.objectNums; i++ {
-		curOffset := pf.curOffset
-
-		b, err := pf.readByte()
-		if err != nil {
+		if err := pf.ParseObject(i); err != nil {
 			return err
 		}
-
-		_type := ObjectType((b >> 4) & 7)
-		size := uint64(b & 15)
-		shift := 4
-
-		for b&0x80 != 0 {
-			b, err = pf.readByte()
-			if err != nil {
-				return err
-			}
-
-			size += (uint64(b) & 0x7f) << shift
-			shift += 7
-		}
-
-		switch _type {
-		case ObjRefDelta:
-			_, err = pf.fill(GitSha1Rawsz)
-			if err != nil {
-				return err
-			}
-
-			// handle ref delta
-
-			pf.use(GitSha1Rawsz)
-		case ObjOfsDelta:
-			b, err = pf.readByte()
-			if err != nil {
-				return err
-			}
-
-			baseOffset := uint64(b & 127)
-			for b&128 != 0 {
-				baseOffset++
-				if baseOffset == 0 || (MSB64(baseOffset) != 0) {
-					return fmt.Errorf("bad delta base object offset value")
-				}
-
-				if b, err = pf.readByte(); err != nil {
-					return err
-				}
-
-				baseOffset = (baseOffset << 7) + uint64(b&127)
-			}
-			ofsOffset := curOffset - baseOffset
-			if ofsOffset <= 0 || ofsOffset >= curOffset {
-				return fmt.Errorf("delta base offset is out of bound: curOffset=%d, baseOffet=%d, b=%d", curOffset, baseOffset, b)
-			}
-		case ObjCommit, ObjTree, ObjBlob, ObjTag:
-		default:
-			return fmt.Errorf("bad type %v", _type)
-		}
-
-		obj := &Object{
-			offset: curOffset,
-			_type:  _type,
-			size:   size,
-		}
-		pf.objects = append(pf.objects, obj)
-
-		log.Printf("index=%d offset=%d, type=%s, size=%d\n", i, obj.offset, obj._type, obj.size)
-		_, err = pf.unpackEntryData(int(obj.size), obj._type)
-		if err != nil {
-			return err
-		}
-
 	}
 
 	return nil
