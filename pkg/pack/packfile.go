@@ -3,7 +3,8 @@ package pack
 import (
 	"encoding/binary"
 	"fmt"
-	"log"
+	log "github.com/sirupsen/logrus"
+
 	"os"
 	"unsafe"
 
@@ -48,6 +49,15 @@ func NewPackFile(packPath string) (*PackFile, error) {
 	}, nil
 }
 
+func (pf *PackFile) ShowFileStat() error {
+	stat, err := pf.file.Stat()
+	if err != nil {
+		return err
+	}
+	log.Printf("size = %d\n", stat.Size())
+	return nil
+}
+
 func (pf *PackFile) ParseHeader() error {
 	header, err := pf.fill(headerSize)
 	if err != nil {
@@ -64,13 +74,16 @@ func (pf *PackFile) ParseHeader() error {
 		return fmt.Errorf("bad version %d", version)
 	}
 	pf.version = version
-	log.Printf("version = %d\n", version)
 	objectNums := binary.BigEndian.Uint32(header[8:12])
 
 	pf.objectNums = objectNums
-	log.Printf("object nums = %d\n", objectNums)
 
 	return nil
+}
+
+func (pf *PackFile) ShowHeader() {
+	log.Printf("version = %d\n", pf.version)
+	log.Printf("objectNums = %d\n", pf.objectNums)
 }
 
 func MSB64(value uint64) uint8 {
@@ -173,6 +186,12 @@ func (pf *PackFile) ParseObjects() error {
 	}
 
 	return nil
+}
+
+func (pf *PackFile) ShowObjects() {
+	for _, obj := range pf.objects {
+		log.Printf("index=%d offset=%d, type=%s, size=%d\n", obj.index, obj.offset, obj._type, obj.size)
+	}
 }
 
 func (pf *PackFile) readByte() (byte, error) {
