@@ -1,6 +1,6 @@
 package main
 
-import "github.com/adlternative/git-tiny-verify-pack/cmd"
+import "github.com/adlternative/git-miner/cmd"
 
 func main() {
 	cmd.Execute()

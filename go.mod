@@ -1,4 +1,4 @@
-module github.com/adlternative/git-tiny-verify-pack
+module github.com/adlternative/git-miner
 
 go 1.18
 

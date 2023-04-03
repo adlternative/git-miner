@@ -1,11 +1,9 @@
 /*
 Copyright © 2023 NAME HERE <EMAIL ADDRESS>
-
 */
 package cmd
 
 import (
-	"github.com/adlternative/git-tiny-verify-pack/pkg/pack"
 	"os"
 
 	log "github.com/sirupsen/logrus"
@@ -14,17 +12,9 @@ import (
 
 // rootCmd represents the base command when called without any subcommands
 var rootCmd = &cobra.Command{
-	Use:   "git-tiny-verify-pack",
-	Short: "git-tiny-verify-pack",
-	Long:  `my tiny debug pack struct program`,
-	Args:  cobra.ExactArgs(1),
-	Run: func(cmd *cobra.Command, args []string) {
-		if err := pack.Verify(args[0]); err != nil {
-			log.Printf("verify failed: %v\n", err)
-			os.Exit(1)
-		}
-		log.Printf("%s ok", args[0])
-	},
+	Use:   "git-miner",
+	Short: "git data struct miner",
+	Long:  `Used to learn and research the principle of git data struct.`,
 }
 
 // Execute adds all child commands to the root command and sets flags appropriately.
@@ -54,7 +44,7 @@ func init() {
 	// Cobra supports persistent flags, which, if defined here,
 	// will be global for your application.
 
-	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.git-tiny-verify-pack.yaml)")
+	// rootCmd.PersistentFlags().StringVar(&cfgFile, "config", "", "config file (default is $HOME/.git-miner.yaml)")
 
 	// Cobra also supports local flags, which will only run
 	// when this action is called directly.
