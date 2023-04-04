@@ -44,6 +44,10 @@ func (f *File) ShowHeader() {
 	log.Printf("entries count = %d\n", f.Header.EntriesCount)
 }
 
+func (f *File) ShowFileInfo() {
+	log.Printf("fileSize = %d\n", len(f.indexBuf))
+}
+
 func NewFile(fileName string) (*File, error) {
 	indexBuf, err := os.ReadFile(fileName)
 	if err != nil {

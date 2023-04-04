@@ -5,6 +5,7 @@ func Verify(fileName string) error {
 	if err != nil {
 		return err
 	}
+	file.ShowFileInfo()
 	err = file.ParseHeader()
 	if err != nil {
 		return err
