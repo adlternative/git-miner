@@ -2,6 +2,7 @@ package index
 
 import (
 	"encoding/binary"
+	"errors"
 	"fmt"
 	log "github.com/sirupsen/logrus"
 	"os"
@@ -11,22 +12,29 @@ type File struct {
 	Header
 	indexBuf []byte
 	offset   uint64
+
+	eoie *EOIEExtension
 }
 
-const HardCodeSignature = 0x44495243
+const IndexSignature = 0x44495243
 
 type Header struct {
-	Signature    uint32
+	signature    Signature
 	Version      uint32
 	EntriesCount uint32
 }
 
+func (h *Header) String() string {
+	return fmt.Sprintf("[header] signature:%v, version:%v, entriesCount:%v", h.signature, h.Version, h.EntriesCount)
+}
+
 func (f *File) ParseHeader() error {
-	f.Header.Signature = binary.BigEndian.Uint32(f.indexBuf[f.offset : f.offset+4])
-	if f.Header.Signature != HardCodeSignature {
-		return fmt.Errorf("invalid index header signature %0x", f.Header.Signature)
+	signature := binary.BigEndian.Uint32(f.indexBuf[f.offset : f.offset+4])
+	if signature != IndexSignature {
+		return fmt.Errorf("index parse header failed: %w", NewInvalidSignature(IndexSignature, signature))
 	}
 
+	f.Header.signature = Signature(signature)
 	f.offset += 4
 	f.Header.Version = binary.BigEndian.Uint32(f.indexBuf[f.offset : f.offset+4])
 	if f.Header.Version > 4 || f.Header.Version < 2 {
@@ -39,13 +47,35 @@ func (f *File) ParseHeader() error {
 }
 
 func (f *File) ShowHeader() {
-	log.Printf("signature = %0x\n", f.Header.Signature)
-	log.Printf("version = %d\n", f.Header.Version)
-	log.Printf("entries count = %d\n", f.Header.EntriesCount)
+	log.Println(&f.Header)
 }
 
 func (f *File) ShowFileInfo() {
-	log.Printf("fileSize = %d\n", len(f.indexBuf))
+	log.Println("[file] size:", len(f.indexBuf))
+}
+
+const SHA1Size = 20
+const EOIESize = 4 + SHA1Size
+const EOIESizeWithHeader = EOIESize + 4 + 4
+
+func (f *File) ParseEndOfIndexEntriesExtension() (bool, error) {
+	fileSize := len(f.indexBuf)
+
+	extOffset := fileSize - EOIESizeWithHeader - SHA1Size
+	if extOffset < 0 {
+		return false, nil
+	}
+
+	eoie, err := NewEOIEExtension(uint32(extOffset), f.indexBuf[extOffset:extOffset+EOIESizeWithHeader])
+	if err != nil {
+		if errors.Is(err, ErrWrongSignature) {
+			return false, nil
+		}
+		return false, err
+	}
+	f.eoie = eoie
+
+	return true, nil
 }
 
 func NewFile(fileName string) (*File, error) {
