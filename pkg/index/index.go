@@ -14,6 +14,9 @@ type File struct {
 	offset   uint64
 
 	eoie *EOIEExtension
+	//ieot *IEOTExtension
+
+	exts []Extension
 }
 
 const IndexSignature = 0x44495243
@@ -31,7 +34,7 @@ func (h *Header) String() string {
 func (f *File) ParseHeader() error {
 	signature := binary.BigEndian.Uint32(f.indexBuf[f.offset : f.offset+4])
 	if signature != IndexSignature {
-		return fmt.Errorf("index parse header failed: %w", NewInvalidSignature(IndexSignature, signature))
+		return fmt.Errorf("index parse header failed: %w", NewInvalidSignature(IndexSignature, Signature(signature)))
 	}
 
 	f.Header.signature = Signature(signature)
@@ -58,24 +61,89 @@ const SHA1Size = 20
 const EOIESize = 4 + SHA1Size
 const EOIESizeWithHeader = EOIESize + 4 + 4
 
-func (f *File) ParseEndOfIndexEntriesExtension() (bool, error) {
+func (f *File) parseEndOfIndexEntriesExtension() error {
 	fileSize := len(f.indexBuf)
 
 	extOffset := fileSize - EOIESizeWithHeader - SHA1Size
 	if extOffset < 0 {
-		return false, nil
+		return nil
 	}
 
-	eoie, err := NewEOIEExtension(uint32(extOffset), f.indexBuf[extOffset:extOffset+EOIESizeWithHeader])
+	eoie, err := NewEOIEExtension(f.indexBuf, uint32(extOffset))
 	if err != nil {
 		if errors.Is(err, ErrWrongSignature) {
-			return false, nil
+			return nil
 		}
-		return false, err
+		return err
 	}
 	f.eoie = eoie
+	f.exts = append(f.exts, eoie)
+	return nil
+}
 
-	return true, nil
+func (f *File) Parse() error {
+	err := f.ParseHeader()
+	if err != nil {
+		return err
+	}
+	// eoie
+	err = f.parseEndOfIndexEntriesExtension()
+	if err != nil {
+		return err
+	}
+	if f.eoie != nil {
+		err := f.parseExtensions()
+		if err != nil {
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (f *File) Show() error {
+	f.ShowFileInfo()
+	f.ShowHeader()
+
+	for _, ext := range f.exts {
+		log.Println(ext)
+	}
+
+	return nil
+}
+
+func (f *File) parseExtensions() error {
+	offset := f.eoie.endOffIndexEntriesOffset
+
+	for offset < f.eoie.offset {
+		var ext Extension
+		if offset+8 > uint32(len(f.indexBuf)) {
+			return fmt.Errorf("short extension header length")
+		}
+		signature, size, err := ParseExtensionHeader(f.indexBuf[offset : offset+8])
+		if err != nil {
+			return err
+		}
+
+		switch signature {
+		case IEOTSignature:
+			ext, err = NewIEOTExtension(f.indexBuf, offset, size)
+			if err != nil {
+				return err
+			}
+		case TreeSignature:
+			ext, err = NewTreeExtension(f.indexBuf, offset, size)
+			if err != nil {
+				return err
+			}
+		default:
+			return fmt.Errorf("unknown Signature: %v", signature)
+		}
+		f.exts = append(f.exts, ext)
+		offset += size + 8
+	}
+
+	return nil
 }
 
 func NewFile(fileName string) (*File, error) {
